@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
@@ -18,8 +17,8 @@ import { findTasksByQuery } from './services/geminiService';
 import { Status, Priority } from './types';
 import type { Task, Subtask, Column, NewTaskData, TaskWithDetails, SortBy, User, Attachment, Comment, Client, Project, Assignee } from './types';
 import { supabase } from './services/supabaseClient';
+// FIX: Import the api functions to resolve 'Cannot find name 'api'' errors.
 import * as api from './services/api';
-// FIX: Replaced direct User import with Session to derive user type, resolving an export error in older Supabase versions.
 import type { Session } from '@supabase/supabase-js';
 
 export default function App() {
@@ -80,28 +79,34 @@ export default function App() {
         setClients([]);
         setProjects([]);
         setAssignees([]);
+        setMainView('kanban'); // Reset view on logout
     }
   }, [viewMode]);
 
   useEffect(() => {
-      // FIX: Replaced async `getSession()` with sync `session()` for compatibility with older Supabase versions.
-      handleUserSession(supabase.auth.session()?.user ?? null);
+    const fetchSession = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        handleUserSession(session?.user ?? null);
+    };
 
-      // FIX: Adjusted destructuring for `onAuthStateChange` to match older Supabase versions' return signature.
-      const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-          handleUserSession(session?.user ?? null);
-      });
+    fetchSession();
 
-      return () => subscription?.unsubscribe();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        handleUserSession(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, [handleUserSession]);
 
   useEffect(() => {
-    if (viewMode === 'client') {
-      setSelectedFilterId(clients[0]?.id || '');
-    } else {
-      setSelectedFilterId(projects[0]?.id || '');
+    if (currentUser) {
+        if (viewMode === 'client') {
+          setSelectedFilterId(clients[0]?.id || '');
+        } else {
+          setSelectedFilterId(projects[0]?.id || '');
+        }
     }
-  }, [viewMode, clients, projects]);
+  }, [viewMode, clients, projects, currentUser]);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -113,7 +118,6 @@ export default function App() {
 
   const handleSignUp = useCallback(async (email: string, password: string) => {
     setAuthError(null);
-    // FIX: Switched to `signUp` which is supported in older Supabase versions. This assumes the error about it not existing is spurious.
     const { error } = await supabase.auth.signUp({ email, password });
     if (error) {
         setAuthError(error.message);
@@ -125,8 +129,7 @@ export default function App() {
 
   const handleSignIn = useCallback(async (email: string, password: string) => {
     setAuthError(null);
-    // FIX: Replaced `signInWithPassword` with `signIn` for compatibility with older Supabase versions.
-    const { error } = await supabase.auth.signIn({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
         setAuthError(error.message);
     } else {
@@ -136,7 +139,6 @@ export default function App() {
   }, []);
 
   const handleSignOut = useCallback(async () => {
-    // FIX: Used `signOut` which is supported in older Supabase versions. This assumes the error about it not existing is spurious.
     await supabase.auth.signOut();
     setCurrentUser(null);
   }, []);
@@ -235,7 +237,7 @@ export default function App() {
         id: `attach-${Date.now()}-${Math.random()}`,
     }));
 
-    const taskToCreate: Omit<Task, 'user_id'> = {
+    const taskToCreate: Task = {
       ...restOfData,
       id: `task-${Date.now()}-${Math.random()}`,
       status: Status.ToDo,
@@ -366,40 +368,40 @@ export default function App() {
         onSearch={handleSearch}
       />
       
-      {currentUser ? (
-        <main className="p-4 sm:p-6 lg:p-8">
-            {mainView !== 'sql' &&
-              <Dashboard 
-                allTasks={tasks}
-                clients={clients}
-                projects={projects}
-                onTaskClick={handleOpenEditModal}
-                longPendingDays={longPendingDays}
-              />
-            }
-            {mainView === 'kanban' ? (
-                <KanbanBoard 
-                    columns={columns} 
-                    onOpenAIAssistant={handleOpenAIAssistant}
-                    onOpenEditModal={handleOpenEditModal}
-                    onToggleSubtask={handleToggleSubtask}
-                    sortBy={sortBy}
-                    setSortBy={setSortBy}
+      <main className="p-4 sm:p-6 lg:p-8">
+        {mainView === 'sql' ? (
+            <SQLSchemaView />
+        ) : currentUser ? (
+            <>
+                <Dashboard 
                     allTasks={tasks}
-                />
-            ) : mainView === 'gantt' ? (
-                <GanttChart 
-                    tasks={displayedTasks}
-                    allTasks={allTasksWithDetails}
+                    clients={clients}
+                    projects={projects}
                     onTaskClick={handleOpenEditModal}
+                    longPendingDays={longPendingDays}
                 />
-            ) : (
-                <SQLSchemaView />
-            )}
-        </main>
-      ) : (
-        <AuthLandingPage onOpenSignIn={openSignInModal} onOpenSignUp={openSignUpModal} />
-      )}
+                {mainView === 'kanban' ? (
+                    <KanbanBoard 
+                        columns={columns} 
+                        onOpenAIAssistant={handleOpenAIAssistant}
+                        onOpenEditModal={handleOpenEditModal}
+                        onToggleSubtask={handleToggleSubtask}
+                        sortBy={sortBy}
+                        setSortBy={setSortBy}
+                        allTasks={tasks}
+                    />
+                ) : mainView === 'gantt' ? (
+                    <GanttChart 
+                        tasks={displayedTasks}
+                        allTasks={allTasksWithDetails}
+                        onTaskClick={handleOpenEditModal}
+                    />
+                ) : null}
+            </>
+        ) : (
+            <AuthLandingPage onOpenSignIn={openSignInModal} onOpenSignUp={openSignUpModal} />
+        )}
+      </main>
 
       {/* Task Modals */}
       {isModalOpen && selectedTask && (

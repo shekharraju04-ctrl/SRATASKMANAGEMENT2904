@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { Client, Project, User } from '../types';
 
@@ -161,6 +162,12 @@ export const Header: React.FC<HeaderProps> = ({
                                     aria-label="Toggle dark mode"
                                 >
                                     {isDarkMode ? <SunIcon /> : <MoonIcon />}
+                                </button>
+                                <button
+                                    onClick={() => setMainView('sql')}
+                                    className="px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+                                >
+                                    Database Setup
                                 </button>
                                 <button
                                     onClick={onOpenSignIn}

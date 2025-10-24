@@ -1,6 +1,6 @@
+
 import { supabase } from './supabaseClient';
 import type { Task, Client, Project, Assignee, User } from '../types';
-// FIX: Changed import to Session to derive the user type, resolving an export error with older Supabase versions.
 import type { Session } from '@supabase/supabase-js';
 
 // Type for the profile table in Supabase
@@ -104,10 +104,6 @@ export const getData = async (user: Session['user']): Promise<{ tasks: Task[], c
   };
 };
 
-// FIX: Changed task parameter type from Omit<Task, 'id'|'user_id'> to Task.
-// The original type was incorrect as it removed the 'id' property,
-// but the function body requires access to `task.id`. This also fixes a
-// type error where the full task object was passed to `taskToSupabase`.
 export const createTask = async (task: Task, userId: string): Promise<Task | null> => {
   const { id, ...restOfTask } = task;
   const dbTask = { id, ...taskToSupabase(restOfTask, userId) };
