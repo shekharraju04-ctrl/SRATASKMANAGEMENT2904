@@ -105,9 +105,11 @@ export const getData = async (user: SupabaseUser): Promise<{ tasks: Task[], clie
 
 // FIX: Changed task parameter type from Omit<Task, 'id'|'user_id'> to Task.
 // The original type was incorrect as it removed the 'id' property,
-// but the function body requires access to `task.id`.
+// but the function body requires access to `task.id`. This also fixes a
+// type error where the full task object was passed to `taskToSupabase`.
 export const createTask = async (task: Task, userId: string): Promise<Task | null> => {
-  const dbTask = { id: task.id, ...taskToSupabase(task, userId) };
+  const { id, ...restOfTask } = task;
+  const dbTask = { id, ...taskToSupabase(restOfTask, userId) };
   const { data, error } = await supabase
     .from('tasks')
     .insert(dbTask)
