@@ -1,4 +1,5 @@
 
+
 import { supabase } from './supabaseClient';
 import type { Task, Client, Project, Assignee, User } from '../types';
 import type { Session } from '@supabase/supabase-js';
@@ -178,18 +179,33 @@ export const runRawQuery = async (query: string): Promise<{ data: any[] | null, 
         return { data: null, error: { message: 'Invalid query provided.' } };
     }
 
-    const { data, error } = await supabase.rpc('execute_sql', { query });
+    try {
+        const { data, error } = await supabase.rpc('execute_sql', { query });
 
-    if (error) {
-        console.error('Error running raw query:', error);
-        return { data: null, error };
+        if (error) {
+            console.error('Error running raw query:', error);
+            // Ensure the error object passed to the UI has a string message.
+            if (typeof error === 'object' && error !== null && 'message' in error) {
+                return { data: null, error };
+            }
+            // Fallback for unexpected error shapes from the client.
+            return { data: null, error: { message: String(error) } };
+        }
+
+        // The PostgreSQL function returns an object with an 'error' key on failure.
+        if (data && typeof data === 'object' && !Array.isArray(data) && data.error) {
+            // Ensure the message from the DB is a string.
+            return { data: null, error: { message: String(data.error) } };
+        }
+
+        // The result from a successful query (using json_agg) should be an array or null.
+        if (data !== null && !Array.isArray(data)) {
+            return { data: null, error: { message: 'Query returned an unexpected data format. Expected an array of results.' } };
+        }
+
+        return { data: data || [], error: null };
+    } catch (e: any) {
+        console.error("Exception occurred in runRawQuery:", e);
+        return { data: null, error: { message: e.message || 'An unexpected client-side error occurred.' } };
     }
-
-    // The function returns a single JSON object which might contain an error key from the EXCEPTION block
-    if (data && data.error) {
-         return { data: null, error: { message: data.error } };
-    }
-
-    // The result from json_agg could be null if the query returns no rows.
-    return { data: data || [], error: null };
 };
