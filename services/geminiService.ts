@@ -196,3 +196,48 @@ export async function findTasksByQuery(query: string, tasks: Task[]): Promise<st
       throw new Error("Could not perform AI search. Please check your API key and network connection.");
   }
 }
+
+export async function formatSQLQuery(sql: string): Promise<string> {
+  const prompt = `
+    As an expert SQL developer, your task is to format the following SQL query.
+    Apply standard SQL formatting best practices:
+    - Use consistent capitalization for keywords (e.g., uppercase SELECT, FROM, WHERE).
+    - Use indentation for readability.
+    - Place each clause (SELECT, FROM, WHERE, GROUP BY, etc.) on a new line.
+    - Ensure the query is syntactically correct and logically unchanged.
+
+    SQL to format:
+    \`\`\`sql
+    ${sql}
+    \`\`\`
+
+    Return ONLY the formatted SQL query as a raw string. Do not include backticks, the word "sql", or any explanation.
+  `;
+
+  try {
+    const ai = getAiClient();
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    
+    let formattedSql = response.text.trim();
+    
+    // Clean up potential markdown code block formatting
+    if (formattedSql.startsWith('```sql')) {
+        formattedSql = formattedSql.substring(6);
+    }
+    if (formattedSql.startsWith('```')) {
+        formattedSql = formattedSql.substring(3);
+    }
+    if (formattedSql.endsWith('```')) {
+        formattedSql = formattedSql.slice(0, -3);
+    }
+    
+    return formattedSql.trim();
+
+  } catch (error) {
+    console.error("Error formatting SQL:", error);
+    throw new Error("Could not format SQL query. Please check your API key and network connection.");
+  }
+}

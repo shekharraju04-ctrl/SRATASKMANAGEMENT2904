@@ -5,10 +5,10 @@ interface HeaderProps {
     isDarkMode: boolean;
     setIsDarkMode: (isDark: boolean) => void;
     onOpenCreateModal: () => void;
-    mainView: 'kanban' | 'gantt' | 'sql';
-    setMainView: (mode: 'kanban' | 'gantt' | 'sql') => void;
+    mainView: string;
+    setMainView: (mode: string) => void;
     viewMode: 'client' | 'project';
-    setViewMode: (mode: 'client' | 'project') => void;
+    setViewMode: (mode: 'client' | 'project) => void;
     selectedFilterId: string;
     setSelectedFilterId: (id: string) => void;
     clients: Client[];
@@ -96,7 +96,7 @@ export const Header: React.FC<HeaderProps> = ({
                               <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg flex items-center">
                                   <button onClick={() => setMainView('kanban')} className={`px-3 py-1 text-sm font-semibold rounded-md ${mainView === 'kanban' ? 'bg-white dark:bg-gray-900 text-primary-600 dark:text-primary-300 shadow' : 'text-gray-600 dark:text-gray-300'}`}>Board</button>
                                   <button onClick={() => setMainView('gantt')} className={`px-3 py-1 text-sm font-semibold rounded-md ${mainView === 'gantt' ? 'bg-white dark:bg-gray-900 text-primary-600 dark:text-primary-300 shadow' : 'text-gray-600 dark:text-gray-300'}`}>Gantt</button>
-                                  <button onClick={() => setMainView('sql')} className={`px-3 py-1 text-sm font-semibold rounded-md ${mainView === 'sql' ? 'bg-white dark:bg-gray-900 text-primary-600 dark:text-primary-300 shadow' : 'text-gray-600 dark:text-gray-300'}`}>SQL Schema</button>
+                                  <button onClick={() => setMainView('sql')} className={`px-3 py-1 text-sm font-semibold rounded-md ${mainView === 'sql' ? 'bg-white dark:bg-gray-900 text-primary-600 dark:text-primary-300 shadow' : 'text-gray-600 dark:text-gray-300'}`}>SQL Tools</button>
                               </div>
                               {mainView !== 'sql' && (
                                 <>

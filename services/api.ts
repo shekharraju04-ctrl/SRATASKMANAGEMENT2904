@@ -30,8 +30,7 @@ const taskFromSupabase = (dbTask: any): Task => ({
   financials: dbTask.financials,
 });
 
-const taskToSupabase = (appTask: Task, userId: string) => ({
-  id: appTask.id,
+const taskToSupabase = (appTask: Omit<Task, 'id'>, userId: string) => ({
   user_id: userId,
   title: appTask.title,
   description: appTask.description,
@@ -49,6 +48,7 @@ const taskToSupabase = (appTask: Task, userId: string) => ({
   depends_on: appTask.dependsOn,
   financials: appTask.financials,
 });
+
 
 export const getProfile = async (user: SupabaseUser): Promise<Profile | null> => {
   const { data, error } = await supabase
@@ -103,8 +103,11 @@ export const getData = async (user: SupabaseUser): Promise<{ tasks: Task[], clie
   };
 };
 
-export const createTask = async (task: Omit<Task, 'user_id'>, userId: string): Promise<Task | null> => {
-  const dbTask = taskToSupabase(task, userId);
+// FIX: Changed task parameter type from Omit<Task, 'id'|'user_id'> to Task.
+// The original type was incorrect as it removed the 'id' property,
+// but the function body requires access to `task.id`.
+export const createTask = async (task: Task, userId: string): Promise<Task | null> => {
+  const dbTask = { id: task.id, ...taskToSupabase(task, userId) };
   const { data, error } = await supabase
     .from('tasks')
     .insert(dbTask)
@@ -152,4 +155,25 @@ export const updateTask = async (task: Task): Promise<Task | null> => {
     return null;
   }
   return taskFromSupabase(data);
+};
+
+export const runRawQuery = async (query: string): Promise<{ data: any[] | null, error: any | null }> => {
+    if (!query || typeof query !== 'string') {
+        return { data: null, error: { message: 'Invalid query provided.' } };
+    }
+
+    const { data, error } = await supabase.rpc('execute_sql', { query });
+
+    if (error) {
+        console.error('Error running raw query:', error);
+        return { data: null, error };
+    }
+
+    // The function returns a single JSON object which might contain an error key from the EXCEPTION block
+    if (data && data.error) {
+         return { data: null, error: { message: data.error } };
+    }
+
+    // The result from json_agg could be null if the query returns no rows.
+    return { data: data || [], error: null };
 };
