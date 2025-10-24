@@ -174,38 +174,40 @@ export const createClient = async (clientData: Omit<Client, 'id'>, userId: strin
     return data;
 };
 
-export const runRawQuery = async (query: string): Promise<{ data: any[] | null, error: any | null }> => {
-    if (!query || typeof query !== 'string') {
-        return { data: null, error: { message: 'Invalid query provided.' } };
+export const runRawQuery = async (query: string): Promise<{ data: any[] | null, error: { message: string } | null }> => {
+    if (!query || typeof query !== 'string' || query.trim() === '') {
+        return { data: null, error: { message: 'Invalid or empty query provided.' } };
     }
 
     try {
         const { data, error } = await supabase.rpc('execute_sql', { query });
 
+        // Case 1: RPC call itself failed (e.g., network error, RLS issue on function)
         if (error) {
-            console.error('Error running raw query:', error);
-            // Ensure the error object passed to the UI has a string message.
-            if (typeof error === 'object' && error !== null && 'message' in error) {
-                return { data: null, error };
-            }
-            // Fallback for unexpected error shapes from the client.
-            return { data: null, error: { message: String(error) } };
+            console.error('Error from supabase.rpc:', error);
+            // The `error` object from Supabase client has a `message` string property.
+            return { data: null, error: { message: error.message || 'An unknown RPC error occurred.' } };
         }
 
-        // The PostgreSQL function returns an object with an 'error' key on failure.
+        // Case 2: The SQL function executed but returned a custom error (e.g., syntax error in user's SQL)
         if (data && typeof data === 'object' && !Array.isArray(data) && data.error) {
-            // Ensure the message from the DB is a string.
+            console.error('Error from execute_sql function:', data.error);
             return { data: null, error: { message: String(data.error) } };
         }
-
-        // The result from a successful query (using json_agg) should be an array or null.
+        
+        // Case 3: Successful query, but unexpected data format
         if (data !== null && !Array.isArray(data)) {
-            return { data: null, error: { message: 'Query returned an unexpected data format. Expected an array of results.' } };
+            const errorMessage = 'Query returned an unexpected data format. Expected an array of results.';
+            console.error(errorMessage, data);
+            return { data: null, error: { message: errorMessage } };
         }
 
+        // Case 4: Successful query (data can be null if the query returns no rows, which is valid)
         return { data: data || [], error: null };
+
     } catch (e: any) {
-        console.error("Exception occurred in runRawQuery:", e);
-        return { data: null, error: { message: e.message || 'An unexpected client-side error occurred.' } };
+        console.error("Exception in runRawQuery:", e);
+        const errorMessage = e.message || 'An unexpected client-side error occurred.';
+        return { data: null, error: { message: errorMessage } };
     }
 };
