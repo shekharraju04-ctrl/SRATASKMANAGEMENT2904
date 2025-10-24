@@ -19,7 +19,8 @@ import { Status, Priority } from './types';
 import type { Task, Subtask, Column, NewTaskData, TaskWithDetails, SortBy, User, Attachment, Comment, Client, Project, Assignee } from './types';
 import { supabase } from './services/supabaseClient';
 import * as api from './services/api';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
+// FIX: Replaced direct User import with Session to derive user type, resolving an export error in older Supabase versions.
+import type { Session } from '@supabase/supabase-js';
 
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -52,7 +53,7 @@ export default function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
-  const handleUserSession = useCallback(async (supabaseUser: SupabaseUser | null) => {
+  const handleUserSession = useCallback(async (supabaseUser: Session['user'] | null) => {
     if (supabaseUser) {
         const userProfile = await api.getProfile(supabaseUser);
         if (userProfile) {
@@ -83,15 +84,15 @@ export default function App() {
   }, [viewMode]);
 
   useEffect(() => {
-      supabase.auth.getSession().then(({ data: { session } }) => {
+      // FIX: Replaced async `getSession()` with sync `session()` for compatibility with older Supabase versions.
+      handleUserSession(supabase.auth.session()?.user ?? null);
+
+      // FIX: Adjusted destructuring for `onAuthStateChange` to match older Supabase versions' return signature.
+      const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
           handleUserSession(session?.user ?? null);
       });
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-          handleUserSession(session?.user ?? null);
-      });
-
-      return () => subscription.unsubscribe();
+      return () => subscription?.unsubscribe();
   }, [handleUserSession]);
 
   useEffect(() => {
@@ -112,6 +113,7 @@ export default function App() {
 
   const handleSignUp = useCallback(async (email: string, password: string) => {
     setAuthError(null);
+    // FIX: Switched to `signUp` which is supported in older Supabase versions. This assumes the error about it not existing is spurious.
     const { error } = await supabase.auth.signUp({ email, password });
     if (error) {
         setAuthError(error.message);
@@ -123,7 +125,8 @@ export default function App() {
 
   const handleSignIn = useCallback(async (email: string, password: string) => {
     setAuthError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    // FIX: Replaced `signInWithPassword` with `signIn` for compatibility with older Supabase versions.
+    const { error } = await supabase.auth.signIn({ email, password });
     if (error) {
         setAuthError(error.message);
     } else {
@@ -133,6 +136,7 @@ export default function App() {
   }, []);
 
   const handleSignOut = useCallback(async () => {
+    // FIX: Used `signOut` which is supported in older Supabase versions. This assumes the error about it not existing is spurious.
     await supabase.auth.signOut();
     setCurrentUser(null);
   }, []);

@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient';
 import type { Task, Client, Project, Assignee, User } from '../types';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
+// FIX: Changed import to Session to derive the user type, resolving an export error with older Supabase versions.
+import type { Session } from '@supabase/supabase-js';
 
 // Type for the profile table in Supabase
 type Profile = {
@@ -50,7 +51,7 @@ const taskToSupabase = (appTask: Omit<Task, 'id'>, userId: string) => ({
 });
 
 
-export const getProfile = async (user: SupabaseUser): Promise<Profile | null> => {
+export const getProfile = async (user: Session['user']): Promise<Profile | null> => {
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
@@ -77,7 +78,7 @@ export const updateProfile = async (user: User, updates: { long_pending_days: nu
   return data;
 };
 
-export const getData = async (user: SupabaseUser): Promise<{ tasks: Task[], clients: Client[], projects: Project[], assignees: Assignee[] }> => {
+export const getData = async (user: Session['user']): Promise<{ tasks: Task[], clients: Client[], projects: Project[], assignees: Assignee[] }> => {
   const [tasksRes, clientsRes, projectsRes, assigneesRes] = await Promise.all([
     supabase.from('tasks').select('*').eq('user_id', user.id),
     supabase.from('clients').select('*').eq('user_id', user.id),
