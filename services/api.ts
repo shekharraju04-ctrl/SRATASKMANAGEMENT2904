@@ -159,6 +159,23 @@ export const updateTask = async (task: Task): Promise<Task | null> => {
   return taskFromSupabase(data);
 };
 
+export const createClient = async (clientData: Omit<Client, 'id'>, userId: string): Promise<Client | null> => {
+    const { data, error } = await supabase
+        .from('clients')
+        .insert({
+            name: clientData.name,
+            user_id: userId,
+        })
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error creating client:', error);
+        return null;
+    }
+    return data;
+};
+
 export const runRawQuery = async (query: string): Promise<{ data: any[] | null, error: any | null }> => {
     if (!query || typeof query !== 'string') {
         return { data: null, error: { message: 'Invalid query provided.' } };
