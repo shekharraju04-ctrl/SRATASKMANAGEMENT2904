@@ -162,7 +162,8 @@ export const GanttChart: React.FC<GanttChartProps> = ({ tasks, allTasks, onTaskC
                             </div>
                             <div className="relative border-r border-gray-200 dark:border-gray-700 h-12 flex items-center" style={{ gridColumn: `2 / span ${totalDays}` }}>
                                 <div
-                                    ref={el => taskElementsRef.current[task.id] = el}
+                                    // FIX: Wrapped callback ref in a block to ensure a void return type, resolving the assignment error.
+                                    ref={el => { taskElementsRef.current[task.id] = el; }}
                                     onClick={() => onTaskClick(task)}
                                     className="h-8 absolute z-10 rounded-md flex items-center px-2 cursor-pointer hover:opacity-80 transition-opacity"
                                     style={{

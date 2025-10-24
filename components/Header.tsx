@@ -6,10 +6,12 @@ interface HeaderProps {
     isDarkMode: boolean;
     setIsDarkMode: (isDark: boolean) => void;
     onOpenCreateModal: () => void;
-    mainView: string;
-    setMainView: (mode: string) => void;
+    // FIX: Updated mainView and setMainView prop types for better type safety and to match App state.
+    mainView: 'kanban' | 'gantt' | 'sql';
+    setMainView: (mode: 'kanban' | 'gantt' | 'sql') => void;
     viewMode: 'client' | 'project';
-    setViewMode: (mode: 'client' | 'project) => void;
+    // FIX: Corrected a typo in the type definition (a misplaced single quote).
+    setViewMode: (mode: 'client' | 'project') => void;
     selectedFilterId: string;
     setSelectedFilterId: (id: string) => void;
     clients: Client[];
