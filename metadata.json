@@ -1,0 +1,5 @@
+{
+  "name": "AcctFlow - AI Task Manager for Accountants",
+  "description": "A modern, AI-powered task management application designed specifically for chartered accountants. It features a Kanban board for workflow visualization and a Gemini-powered assistant to help break down complex accounting tasks into actionable sub-tasks.",
+  "requestFramePermissions": []
+}
