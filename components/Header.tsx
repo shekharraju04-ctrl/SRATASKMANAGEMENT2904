@@ -5,8 +5,8 @@ interface HeaderProps {
     isDarkMode: boolean;
     setIsDarkMode: (isDark: boolean) => void;
     onOpenCreateModal: () => void;
-    mainView: 'kanban' | 'gantt';
-    setMainView: (mode: 'kanban' | 'gantt') => void;
+    mainView: 'kanban' | 'gantt' | 'sql';
+    setMainView: (mode: 'kanban' | 'gantt' | 'sql') => void;
     viewMode: 'client' | 'project';
     setViewMode: (mode: 'client' | 'project') => void;
     selectedFilterId: string;
@@ -96,20 +96,25 @@ export const Header: React.FC<HeaderProps> = ({
                               <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg flex items-center">
                                   <button onClick={() => setMainView('kanban')} className={`px-3 py-1 text-sm font-semibold rounded-md ${mainView === 'kanban' ? 'bg-white dark:bg-gray-900 text-primary-600 dark:text-primary-300 shadow' : 'text-gray-600 dark:text-gray-300'}`}>Board</button>
                                   <button onClick={() => setMainView('gantt')} className={`px-3 py-1 text-sm font-semibold rounded-md ${mainView === 'gantt' ? 'bg-white dark:bg-gray-900 text-primary-600 dark:text-primary-300 shadow' : 'text-gray-600 dark:text-gray-300'}`}>Gantt</button>
+                                  <button onClick={() => setMainView('sql')} className={`px-3 py-1 text-sm font-semibold rounded-md ${mainView === 'sql' ? 'bg-white dark:bg-gray-900 text-primary-600 dark:text-primary-300 shadow' : 'text-gray-600 dark:text-gray-300'}`}>SQL Schema</button>
                               </div>
-                              <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg flex items-center">
-                                  <button onClick={() => setViewMode('client')} className={`px-3 py-1 text-sm font-semibold rounded-md ${viewMode === 'client' ? 'bg-white dark:bg-gray-900 text-primary-600 dark:text-primary-300 shadow' : 'text-gray-600 dark:text-gray-300'}`}>Client</button>
-                                  <button onClick={() => setViewMode('project')} className={`px-3 py-1 text-sm font-semibold rounded-md ${viewMode === 'project' ? 'bg-white dark:bg-gray-900 text-primary-600 dark:text-primary-300 shadow' : 'text-gray-600 dark:text-gray-300'}`}>Project</button>
-                              </div>
-                              <select 
-                                  value={selectedFilterId}
-                                  onChange={(e) => setSelectedFilterId(e.target.value)}
-                                  className="w-56 block rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600"
-                              >
-                                  {filterOptions.map(option => (
-                                      <option key={option.id} value={option.id}>{option.name}</option>
-                                  ))}
-                              </select>
+                              {mainView !== 'sql' && (
+                                <>
+                                    <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-lg flex items-center">
+                                        <button onClick={() => setViewMode('client')} className={`px-3 py-1 text-sm font-semibold rounded-md ${viewMode === 'client' ? 'bg-white dark:bg-gray-900 text-primary-600 dark:text-primary-300 shadow' : 'text-gray-600 dark:text-gray-300'}`}>Client</button>
+                                        <button onClick={() => setViewMode('project')} className={`px-3 py-1 text-sm font-semibold rounded-md ${viewMode === 'project' ? 'bg-white dark:bg-gray-900 text-primary-600 dark:text-primary-300 shadow' : 'text-gray-600 dark:text-gray-300'}`}>Project</button>
+                                    </div>
+                                    <select 
+                                        value={selectedFilterId}
+                                        onChange={(e) => setSelectedFilterId(e.target.value)}
+                                        className="w-56 block rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600"
+                                    >
+                                        {filterOptions.map(option => (
+                                            <option key={option.id} value={option.id}>{option.name}</option>
+                                        ))}
+                                    </select>
+                                </>
+                              )}
                           </div>
                       </div>
                     )}

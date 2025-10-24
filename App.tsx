@@ -11,6 +11,7 @@ import { SignUpModal } from './components/SignUpModal';
 import { AuthLandingPage } from './components/AuthLandingPage';
 import { SettingsModal } from './components/SettingsModal';
 import { GanttChart } from './components/GanttChart';
+import { SQLSchemaView } from './components/SQLSchemaView';
 import { SearchResultsModal } from './components/SearchResultsModal';
 import { mockTaskTemplates } from './hooks/useMockData';
 import { findTasksByQuery } from './services/geminiService';
@@ -32,7 +33,7 @@ export default function App() {
   const [selectedTask, setSelectedTask] = useState<TaskWithDetails | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   
-  const [mainView, setMainView] = useState<'kanban' | 'gantt'>('kanban');
+  const [mainView, setMainView] = useState<'kanban' | 'gantt' | 'sql'>('kanban');
   const [viewMode, setViewMode] = useState<'client' | 'project'>('client');
   const [selectedFilterId, setSelectedFilterId] = useState<string>('');
   const [sortBy, setSortBy] = useState<SortBy>('default');
@@ -363,13 +364,15 @@ export default function App() {
       
       {currentUser ? (
         <main className="p-4 sm:p-6 lg:p-8">
-            <Dashboard 
-              allTasks={tasks}
-              clients={clients}
-              projects={projects}
-              onTaskClick={handleOpenEditModal}
-              longPendingDays={longPendingDays}
-            />
+            {mainView !== 'sql' &&
+              <Dashboard 
+                allTasks={tasks}
+                clients={clients}
+                projects={projects}
+                onTaskClick={handleOpenEditModal}
+                longPendingDays={longPendingDays}
+              />
+            }
             {mainView === 'kanban' ? (
                 <KanbanBoard 
                     columns={columns} 
@@ -380,12 +383,14 @@ export default function App() {
                     setSortBy={setSortBy}
                     allTasks={tasks}
                 />
-            ) : (
+            ) : mainView === 'gantt' ? (
                 <GanttChart 
                     tasks={displayedTasks}
                     allTasks={allTasksWithDetails}
                     onTaskClick={handleOpenEditModal}
                 />
+            ) : (
+                <SQLSchemaView />
             )}
         </main>
       ) : (
