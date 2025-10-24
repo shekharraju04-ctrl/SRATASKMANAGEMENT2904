@@ -110,5 +110,6 @@ export interface Column {
 }
 
 export interface User {
+  id: string;
   email: string;
 }

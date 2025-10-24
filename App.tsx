@@ -12,13 +12,20 @@ import { AuthLandingPage } from './components/AuthLandingPage';
 import { SettingsModal } from './components/SettingsModal';
 import { GanttChart } from './components/GanttChart';
 import { SearchResultsModal } from './components/SearchResultsModal';
-import useMockData, { assignees, clients, projects, mockTaskTemplates } from './hooks/useMockData';
+import { mockTaskTemplates } from './hooks/useMockData';
 import { findTasksByQuery } from './services/geminiService';
 import { Status, Priority } from './types';
-import type { Task, Subtask, Column, NewTaskData, TaskWithDetails, SortBy, User, Attachment, Comment } from './types';
+import type { Task, Subtask, Column, NewTaskData, TaskWithDetails, SortBy, User, Attachment, Comment, Client, Project, Assignee } from './types';
+import { supabase } from './services/supabaseClient';
+import * as api from './services/api';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 export default function App() {
-  const { tasks: initialTasks, setTasks: setAllTasks } = useMockData();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [assignees, setAssignees] = useState<Assignee[]>([]);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -27,44 +34,64 @@ export default function App() {
   
   const [mainView, setMainView] = useState<'kanban' | 'gantt'>('kanban');
   const [viewMode, setViewMode] = useState<'client' | 'project'>('client');
-  const [selectedFilterId, setSelectedFilterId] = useState<string>(clients[0]?.id || '');
+  const [selectedFilterId, setSelectedFilterId] = useState<string>('');
   const [sortBy, setSortBy] = useState<SortBy>('default');
 
-  // Auth state
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
   const [isSignUpModalOpen, setIsSignUpModalOpen] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Settings state
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [longPendingDays, setLongPendingDays] = useState<number>(0);
+  const [longPendingDays, setLongPendingDays] = useState<number>(7);
 
-  // AI Search State
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<TaskWithDetails[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Check for persisted user session
-    try {
-      const storedUser = localStorage.getItem('acctflow_user');
-      if (storedUser) {
-        setCurrentUser(JSON.parse(storedUser));
-      }
-      const storedLongPendingDays = localStorage.getItem('acctflow_longPendingDays');
-      if (storedLongPendingDays) {
-        const days = parseInt(storedLongPendingDays, 10);
-        if (!isNaN(days)) {
-            setLongPendingDays(days);
+  const handleUserSession = useCallback(async (supabaseUser: SupabaseUser | null) => {
+    if (supabaseUser) {
+        const userProfile = await api.getProfile(supabaseUser);
+        if (userProfile) {
+            setCurrentUser({ id: supabaseUser.id, email: supabaseUser.email! });
+            setLongPendingDays(userProfile.long_pending_days);
+            
+            // Fetch all user data
+            const { tasks, clients, projects, assignees } = await api.getData(supabaseUser);
+            setTasks(tasks);
+            setClients(clients);
+            setProjects(projects);
+            setAssignees(assignees);
+
+            // Set initial filter
+            if (viewMode === 'client' && clients.length > 0) {
+              setSelectedFilterId(clients[0].id);
+            } else if (viewMode === 'project' && projects.length > 0) {
+              setSelectedFilterId(projects[0].id);
+            }
         }
-      }
-    } catch (error) {
-        console.error("Failed to parse from localStorage", error);
+    } else {
+        setCurrentUser(null);
+        setTasks([]);
+        setClients([]);
+        setProjects([]);
+        setAssignees([]);
     }
-  }, []);
+  }, [viewMode]);
+
+  useEffect(() => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+          handleUserSession(session?.user ?? null);
+      });
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+          handleUserSession(session?.user ?? null);
+      });
+
+      return () => subscription.unsubscribe();
+  }, [handleUserSession]);
 
   useEffect(() => {
     if (viewMode === 'client') {
@@ -72,7 +99,7 @@ export default function App() {
     } else {
       setSelectedFilterId(projects[0]?.id || '');
     }
-  }, [viewMode]);
+  }, [viewMode, clients, projects]);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -82,74 +109,49 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // Auth handlers
-  const handleSignUp = useCallback((email: string, password: string) => {
-    try {
-      const storedUsers = JSON.parse(localStorage.getItem('acctflow_users') || '{}');
-      if (storedUsers[email]) {
-        setAuthError('An account with this email already exists.');
-        return;
-      }
-      // NOTE: In a real app, hash and salt the password. This is for mock purposes only.
-      storedUsers[email] = { password }; 
-      localStorage.setItem('acctflow_users', JSON.stringify(storedUsers));
-      
-      const newUser = { email };
-      localStorage.setItem('acctflow_user', JSON.stringify(newUser));
-      setCurrentUser(newUser);
-      setIsSignUpModalOpen(false);
-      setAuthError(null);
-    } catch (error) {
-        console.error("Sign up failed:", error);
-        setAuthError("An unexpected error occurred during sign up.");
+  const handleSignUp = useCallback(async (email: string, password: string) => {
+    setAuthError(null);
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+        setAuthError(error.message);
+    } else {
+        setIsSignUpModalOpen(false);
+        // User will be set by onAuthStateChange listener
     }
   }, []);
 
-  const handleSignIn = useCallback((email: string, password: string) => {
-    try {
-      const storedUsers = JSON.parse(localStorage.getItem('acctflow_users') || '{}');
-      if (storedUsers[email] && storedUsers[email].password === password) {
-        const user = { email };
-        localStorage.setItem('acctflow_user', JSON.stringify(user));
-        setCurrentUser(user);
+  const handleSignIn = useCallback(async (email: string, password: string) => {
+    setAuthError(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+        setAuthError(error.message);
+    } else {
         setIsSignInModalOpen(false);
-        setAuthError(null);
-      } else {
-        setAuthError('Invalid email or password.');
-      }
-    } catch (error) {
-        console.error("Sign in failed:", error);
-        setAuthError("An unexpected error occurred during sign in.");
+        // User will be set by onAuthStateChange listener
     }
   }, []);
 
-  const handleSignOut = useCallback(() => {
-    localStorage.removeItem('acctflow_user');
+  const handleSignOut = useCallback(async () => {
+    await supabase.auth.signOut();
     setCurrentUser(null);
   }, []);
 
-  const openSignInModal = () => {
-      setAuthError(null);
-      setIsSignUpModalOpen(false);
-      setIsSignInModalOpen(true);
-  }
-  const openSignUpModal = () => {
-      setAuthError(null);
-      setIsSignInModalOpen(false);
-      setIsSignUpModalOpen(true);
-  }
+  const openSignInModal = () => { setAuthError(null); setIsSignUpModalOpen(false); setIsSignInModalOpen(true); }
+  const openSignUpModal = () => { setAuthError(null); setIsSignInModalOpen(false); setIsSignUpModalOpen(true); }
 
-  // Settings Handlers
   const handleOpenSettingsModal = () => setIsSettingsModalOpen(true);
   const handleCloseSettingsModal = () => setIsSettingsModalOpen(false);
-  const handleSaveSettings = (newLongPendingDays: number) => {
-    setLongPendingDays(newLongPendingDays);
-    localStorage.setItem('acctflow_longPendingDays', newLongPendingDays.toString());
+  const handleSaveSettings = async (newLongPendingDays: number) => {
+    if (!currentUser) return;
+    const updatedProfile = await api.updateProfile(currentUser, { long_pending_days: newLongPendingDays });
+    if (updatedProfile) {
+        setLongPendingDays(updatedProfile.long_pending_days);
+    }
     handleCloseSettingsModal();
   };
   
   const allTasksWithDetails = useMemo((): TaskWithDetails[] => {
-     return initialTasks.map(task => {
+     return tasks.map(task => {
         const client = clients.find(c => c.id === task.clientId);
         const project = projects.find(p => p.id === task.projectId);
         return {
@@ -158,7 +160,7 @@ export default function App() {
             projectName: project?.name || 'Unknown Project',
         };
     });
-  }, [initialTasks]);
+  }, [tasks, clients, projects]);
 
 
   const displayedTasks = useMemo((): TaskWithDetails[] => {
@@ -199,7 +201,6 @@ export default function App() {
             if (sortBy === 'assignee') {
                 return a.assignee.name.localeCompare(b.assignee.name);
             }
-            // Add a default sort by start date for consistency
             return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
         });
     }
@@ -207,35 +208,15 @@ export default function App() {
     return newColumns;
   }, [displayedTasks, sortBy]);
 
-  const handleOpenAIAssistant = useCallback((task: TaskWithDetails) => {
-    setSelectedTask(task);
-    setIsModalOpen(true);
-  }, []);
+  const handleOpenAIAssistant = useCallback((task: TaskWithDetails) => { setSelectedTask(task); setIsModalOpen(true); }, []);
+  const handleCloseModal = useCallback(() => { setIsModalOpen(false); setSelectedTask(null); }, []);
+  const handleOpenCreateModal = useCallback(() => { setIsCreateModalOpen(true); }, []);
+  const handleCloseCreateModal = useCallback(() => { setIsCreateModalOpen(false); }, []);
+  const handleOpenEditModal = useCallback((task: TaskWithDetails) => { setSelectedTask(task); setIsEditModalOpen(true); }, []);
+  const handleCloseEditModal = useCallback(() => { setIsEditModalOpen(false); setSelectedTask(null); }, []);
 
-  const handleCloseModal = useCallback(() => {
-    setIsModalOpen(false);
-    setSelectedTask(null);
-  }, []);
-
-  const handleOpenCreateModal = useCallback(() => {
-    setIsCreateModalOpen(true);
-  }, []);
-
-  const handleCloseCreateModal = useCallback(() => {
-    setIsCreateModalOpen(false);
-  }, []);
-  
-  const handleOpenEditModal = useCallback((task: TaskWithDetails) => {
-    setSelectedTask(task);
-    setIsEditModalOpen(true);
-  }, []);
-
-  const handleCloseEditModal = useCallback(() => {
-    setIsEditModalOpen(false);
-    setSelectedTask(null);
-  }, []);
-
-  const handleCreateTask = useCallback((newTaskData: NewTaskData) => {
+  const handleCreateTask = useCallback(async (newTaskData: NewTaskData) => {
+    if (!currentUser) return;
     const { totalFee, subtaskStrings, attachments: newAttachmentsData, ...restOfData } = newTaskData;
 
     const newSubtasks: Subtask[] = (subtaskStrings || []).map(text => ({
@@ -244,13 +225,12 @@ export default function App() {
         completed: false,
     }));
     
-    // FIX: Add unique IDs to new attachments to conform to the `Attachment` type.
     const newAttachments: Attachment[] = (newAttachmentsData || []).map(att => ({
         ...att,
         id: `attach-${Date.now()}-${Math.random()}`,
     }));
 
-    const newTask: Task = {
+    const taskToCreate: Omit<Task, 'user_id'> = {
       ...restOfData,
       id: `task-${Date.now()}-${Math.random()}`,
       status: Status.ToDo,
@@ -260,18 +240,28 @@ export default function App() {
     };
 
     if (totalFee && totalFee > 0) {
-      newTask.financials = { totalFee: totalFee };
+      taskToCreate.financials = { totalFee: totalFee };
+    }
+    
+    const createdTask = await api.createTask(taskToCreate, currentUser.id);
+    if(createdTask) {
+        setTasks(prevTasks => [createdTask, ...prevTasks]);
+    }
+    handleCloseCreateModal();
+  }, [currentUser, handleCloseCreateModal]);
+  
+  const handleUpdateTask = useCallback(async (updatedTask: Task) => {
+    // Optimistic update
+    setTasks(prevTasks => prevTasks.map(task => (task.id === updatedTask.id ? updatedTask : task)));
+    const resultTask = await api.updateTask(updatedTask);
+    if (resultTask) {
+        // Correct with server response
+        setTasks(prevTasks => prevTasks.map(task => (task.id === resultTask.id ? resultTask : task)));
+    } else {
+        // TODO: Handle error, maybe revert optimistic update
+        console.error("Failed to update task");
     }
 
-    setAllTasks(prevTasks => [newTask, ...prevTasks]);
-    handleCloseCreateModal();
-  }, [setAllTasks, handleCloseCreateModal]);
-  
-  const handleUpdateTask = useCallback((updatedTask: Task) => {
-    setAllTasks(prevTasks => 
-      prevTasks.map(task => (task.id === updatedTask.id ? updatedTask : task))
-    );
-    // Also update the selected task if it's being edited
     setSelectedTask(prevSelected => {
         if (prevSelected && prevSelected.id === updatedTask.id) {
             const client = clients.find(c => c.id === updatedTask.clientId);
@@ -284,55 +274,50 @@ export default function App() {
         }
         return prevSelected;
     });
-  }, [setAllTasks]);
+  }, [clients, projects]);
   
   const handleCloseAndUpdate = useCallback((updatedTask: Task) => {
      handleUpdateTask(updatedTask);
      handleCloseEditModal();
   }, [handleUpdateTask, handleCloseEditModal]);
 
-  const handleApplyAIChanges = useCallback((taskId: string, changes: { title?: string; subtasks?: Omit<Subtask, 'id' | 'completed'>[] }) => {
-    setAllTasks(prevTasks => {
-      return prevTasks.map(task => {
-        if (task.id === taskId) {
-          const taskToUpdate = { ...task };
-          
-          if (changes.title) {
-              taskToUpdate.title = changes.title;
-          }
+  const handleApplyAIChanges = useCallback(async (taskId: string, changes: { title?: string; subtasks?: Omit<Subtask, 'id' | 'completed'>[] }) => {
+    const taskToUpdate = tasks.find(task => task.id === taskId);
+    if (!taskToUpdate) return;
+    
+    let updatedTask = { ...taskToUpdate };
+    
+    if (changes.title) {
+        updatedTask.title = changes.title;
+    }
 
-          if (changes.subtasks) {
-              const existingSubtaskTexts = new Set(taskToUpdate.subtasks.map(st => st.text));
-              const uniqueNewSubtasks = changes.subtasks
-                .filter(nst => !existingSubtaskTexts.has(nst.text))
-                .map(nst => ({
-                  ...nst,
-                  id: `subtask-${Date.now()}-${Math.random()}`,
-                  completed: false,
-                }));
-              taskToUpdate.subtasks = [...taskToUpdate.subtasks, ...uniqueNewSubtasks];
-          }
-          return taskToUpdate;
-        }
-        return task;
-      });
-    });
+    if (changes.subtasks) {
+        const existingSubtaskTexts = new Set(updatedTask.subtasks.map(st => st.text));
+        const uniqueNewSubtasks = changes.subtasks
+          .filter(nst => !existingSubtaskTexts.has(nst.text))
+          .map(nst => ({
+            ...nst,
+            id: `subtask-${Date.now()}-${Math.random()}`,
+            completed: false,
+          }));
+        updatedTask.subtasks = [...updatedTask.subtasks, ...uniqueNewSubtasks];
+    }
+    
+    await handleUpdateTask(updatedTask);
     handleCloseModal();
-  }, [setAllTasks, handleCloseModal]);
+  }, [tasks, handleUpdateTask, handleCloseModal]);
   
-  const handleToggleSubtask = useCallback((taskId: string, subtaskId: string) => {
-    setAllTasks(prevTasks => {
-      return prevTasks.map(task => {
-        if (task.id === taskId) {
-          const updatedSubtasks = task.subtasks.map(st => 
-            st.id === subtaskId ? { ...st, completed: !st.completed } : st
-          );
-          return { ...task, subtasks: updatedSubtasks };
-        }
-        return task;
-      });
-    });
-  }, [setAllTasks]);
+  const handleToggleSubtask = useCallback(async (taskId: string, subtaskId: string) => {
+    const taskToUpdate = tasks.find(task => task.id === taskId);
+    if (!taskToUpdate) return;
+
+    const updatedSubtasks = taskToUpdate.subtasks.map(st => 
+      st.id === subtaskId ? { ...st, completed: !st.completed } : st
+    );
+    const updatedTask = { ...taskToUpdate, subtasks: updatedSubtasks };
+    
+    await handleUpdateTask(updatedTask);
+  }, [tasks, handleUpdateTask]);
 
   const handleSearch = useCallback(async (query: string) => {
     if (!query) return;
@@ -344,7 +329,7 @@ export default function App() {
     setIsSearchModalOpen(true);
 
     try {
-        const matchingIds = await findTasksByQuery(query, initialTasks);
+        const matchingIds = await findTasksByQuery(query, tasks);
         const matchingTasks = allTasksWithDetails.filter(task => matchingIds.includes(task.id));
         setSearchResults(matchingTasks);
     } catch (err: any) {
@@ -352,7 +337,7 @@ export default function App() {
     } finally {
         setIsSearching(false);
     }
-  }, [initialTasks, allTasksWithDetails]);
+  }, [tasks, allTasksWithDetails]);
 
   return (
     <div className="bg-gray-100 dark:bg-gray-900 min-h-screen font-sans text-gray-800 dark:text-gray-200 transition-colors duration-300">
@@ -379,7 +364,7 @@ export default function App() {
       {currentUser ? (
         <main className="p-4 sm:p-6 lg:p-8">
             <Dashboard 
-              allTasks={initialTasks}
+              allTasks={tasks}
               clients={clients}
               projects={projects}
               onTaskClick={handleOpenEditModal}
@@ -393,7 +378,7 @@ export default function App() {
                     onToggleSubtask={handleToggleSubtask}
                     sortBy={sortBy}
                     setSortBy={setSortBy}
-                    allTasks={initialTasks}
+                    allTasks={tasks}
                 />
             ) : (
                 <GanttChart 
@@ -433,7 +418,7 @@ export default function App() {
             assignees={assignees}
             projects={projects}
             clients={clients}
-            allTasks={initialTasks}
+            allTasks={tasks}
             currentUser={currentUser}
         />
       )}
