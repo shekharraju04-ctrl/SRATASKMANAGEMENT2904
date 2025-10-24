@@ -1,15 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-// IMPORTANT: Replace with your Supabase project's URL and Anon Key.
-// You can get these from your Supabase project's dashboard:
-// Project Settings > API
-const supabaseUrl = 'https://placeholder.supabase.co';
-const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
+// Read Supabase credentials from environment variables, with fallbacks for development.
+const supabaseUrl = process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
 
+// Warn the developer if they are using placeholder credentials.
 if (supabaseUrl === 'https://placeholder.supabase.co' || supabaseAnonKey === 'YOUR_SUPABASE_ANON_KEY') {
-  // This is not an error that should crash the app, but a warning for the developer.
-  // The user will see this in the console if they haven't configured their credentials.
-  console.warn('Supabase credentials are not configured. Please replace placeholders in services/supabaseClient.ts. The application will not function correctly until this is done.');
+  console.warn(
+    'Supabase credentials are not fully configured. The application is using placeholder values. ' +
+    'For full functionality, please set the SUPABASE_URL and SUPABASE_ANON_KEY environment variables.'
+  );
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
