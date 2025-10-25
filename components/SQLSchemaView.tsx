@@ -10,6 +10,7 @@ const PlayIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" view
 const SparklesIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" /></svg>);
 const LoadingSpinner = () => (<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>);
 const InfoIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" /></svg>);
+const WarningIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>);
 
 const SchemaViewer: React.FC = () => {
     const [sqlContent, setSqlContent] = useState('');
@@ -53,18 +54,42 @@ const SchemaViewer: React.FC = () => {
                     {isCopied ? 'Copied!' : 'Copy SQL'}
                 </button>
             </div>
-            <div className="mb-4 p-4 rounded-md bg-blue-50 dark:bg-blue-900/40 text-sm text-blue-800 dark:text-blue-200 flex items-start space-x-3 flex-shrink-0">
-                <div className="flex-shrink-0 pt-0.5">
-                    <InfoIcon />
+             <div className="mb-4 space-y-4 flex-shrink-0">
+                <div className="p-4 rounded-md bg-blue-50 dark:bg-blue-900/40 text-sm text-blue-800 dark:text-blue-200 flex flex-col space-y-3">
+                    <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0 pt-0.5">
+                            <InfoIcon />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-blue-900 dark:text-blue-100">Deploying to Vercel &amp; Environment Variables</h3>
+                            <p className="mt-1">To deploy this application, you must configure three environment variables in your Vercel project settings.</p>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="font-semibold">1. Find Your Keys</h4>
+                         <p className="mt-1">You need your Supabase Project URL & anon key, and your Google AI Studio API key.</p>
+                        <p className="mt-1">
+                            <a href="https://supabase.com/dashboard/project/_/settings/api" target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-blue-600 dark:hover:text-blue-100">
+                                Find Supabase Keys &rarr;
+                            </a>
+                        </p>
+                    </div>
+                    <div>
+                        <h4 className="font-semibold">2. Set Environment Variables on Vercel</h4>
+                        <p className="mt-1">In your Vercel dashboard, go to Project &gt; Settings &gt; Environment Variables and add the following:</p>
+                        <ul className="list-disc list-inside mt-2 space-y-1 font-mono text-xs bg-blue-100 dark:bg-blue-900/50 p-3 rounded">
+                            <li>SUPABASE_URL=&lt;Your-Supabase-Project-URL&gt;</li>
+                            <li>SUPABASE_ANON_KEY=&lt;Your-Supabase-Anon-Key&gt;</li>
+                            <li>API_KEY=&lt;Your-Google-AI-Studio-API-Key&gt;</li>
+                        </ul>
+                    </div>
                 </div>
-                <div>
-                    <p>You can find your Project URL and anon public key in your Supabase project's API settings.</p>
-                    <p className="mt-1">
-                        <a href="https://supabase.com/dashboard/project/_/settings/api" target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-blue-600 dark:hover:text-blue-100">
-                            Go to Supabase API Settings
-                        </a>
-                    </p>
-                    <p className="mt-2">Once you have them, set them as <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> environment variables for this application to connect to your database.</p>
+                 <div className="p-4 rounded-md bg-yellow-50 dark:bg-yellow-900/40 text-sm text-yellow-800 dark:text-yellow-200 flex items-start space-x-3">
+                    <div className="flex-shrink-0 pt-0.5"> <WarningIcon /> </div>
+                    <div>
+                        <h4 className="font-semibold text-yellow-900 dark:text-yellow-100">Important Security Note</h4>
+                        <p className="mt-1">This application uses the Gemini API key (<code>API_KEY</code>) directly on the client-side. For a production application, this is not secure. To protect your key, you should move API calls to serverless functions (like Vercel Functions) and keep the key on the server.</p>
+                    </div>
                 </div>
             </div>
             <div className="bg-gray-900 rounded-lg overflow-y-auto flex-grow min-h-0">
@@ -172,10 +197,10 @@ export const SQLSchemaView: React.FC = () => {
              <div className="border-b border-gray-200 dark:border-gray-700 mb-4">
                 <nav className="-mb-px flex space-x-6" aria-label="Tabs">
                     <button type="button" onClick={() => setActiveTab('schema')} className={`${ activeTab === 'schema' ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200' } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm`}>
-                        Schema
+                        Schema &amp; Setup
                     </button>
                     <button type="button" onClick={() => setActiveTab('query')} className={`${ activeTab === 'query' ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200' } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm`}>
-                        Query
+                        Query Runner
                     </button>
                 </nav>
             </div>
