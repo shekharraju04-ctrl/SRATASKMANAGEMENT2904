@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import type { Assignee, Task, TaskWithDetails, Project, Client, Financials, Attachment, Comment, User } from '../types';
+import type { Assignee, Task, TaskWithDetails, Project, Client, Financials, Attachment, Comment, User, Subtask } from '../types';
 import { Priority, Status } from '../types';
 
 interface EditTaskModalProps {
@@ -13,12 +13,16 @@ interface EditTaskModalProps {
   currentUser: User;
 }
 
-type Tab = 'Details' | 'Comments' | 'Files';
+type Tab = 'Details' | 'Subtasks' | 'Comments' | 'Files';
 
 const CloseIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg> );
 const WarningIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 flex-shrink-0"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg> );
 const PaperClipIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 mr-2"><path strokeLinecap="round" strokeLinejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.122 2.122l7.81-7.81" /></svg> );
 const TrashIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.033-2.134H8.033C6.91 2.75 6 3.704 6 4.834v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg> );
+const PlusIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>);
+const PencilIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>);
+const CheckIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>);
+
 
 const engagementTypes: Task['engagementType'][] = ['Audit', 'Tax', 'Advisory', 'Bookkeeping'];
 
@@ -34,6 +38,9 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({ task, onClose, onU
     const [assignee, setAssignee] = useState<Assignee | null>(task.assignee);
     const [dependsOn, setDependsOn] = useState(task.dependsOn || '');
     const [financials, setFinancials] = useState<Financials | undefined>(task.financials);
+    const [subtasks, setSubtasks] = useState<Subtask[]>(task.subtasks);
+    const [newSubtaskText, setNewSubtaskText] = useState('');
+    const [editingSubtask, setEditingSubtask] = useState<{ id: string, text: string } | null>(null);
     const [comments, setComments] = useState<Comment[]>(task.comments);
     const [newComment, setNewComment] = useState('');
     const [attachments, setAttachments] = useState<Attachment[]>(task.attachments);
@@ -65,7 +72,6 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({ task, onClose, onU
     
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
-            // FIX: Explicitly type `file` as `File` to resolve properties not being found on an inferred `unknown` type.
             const newFiles = Array.from(e.target.files).map((file: File) => ({
                 id: `attach-${Date.now()}-${file.name}`,
                 name: file.name,
@@ -86,11 +92,39 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({ task, onClose, onU
             return;
         }
         
-        const updatedTask: Task = { ...task, title, description, clientId: selectedProject.clientId, projectId, status, engagementType, priority, startDate, dueDate, assignee, dependsOn: dependsOn || undefined, financials, comments, attachments, };
+        const updatedTask: Task = { ...task, title, description, clientId: selectedProject.clientId, projectId, status, engagementType, priority, startDate, dueDate, assignee, dependsOn: dependsOn || undefined, financials, subtasks, comments, attachments, };
         onUpdateTask(updatedTask);
-    }, [title, description, projectId, engagementType, priority, startDate, dueDate, assignee, status, dependsOn, financials, comments, attachments, onUpdateTask, selectedProject, task]);
+    }, [title, description, projectId, engagementType, priority, startDate, dueDate, assignee, status, dependsOn, financials, subtasks, comments, attachments, onUpdateTask, selectedProject, task]);
     
     const balanceDue = (financials?.totalFee || 0) - (financials?.amountReceived || 0);
+
+    // Subtask handlers
+    const handleAddSubtask = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newSubtaskText.trim()) {
+            const newSubtask: Subtask = {
+                id: `subtask-${Date.now()}-${Math.random()}`,
+                text: newSubtaskText.trim(),
+                completed: false,
+            };
+            setSubtasks(prev => [...prev, newSubtask]);
+            setNewSubtaskText('');
+        }
+    };
+    const handleDeleteSubtask = (subtaskId: string) => setSubtasks(prev => prev.filter(st => st.id !== subtaskId));
+    const handleToggleSubtask = (subtaskId: string) => setSubtasks(prev => prev.map(st => st.id === subtaskId ? { ...st, completed: !st.completed } : st));
+    const handleStartEditing = (subtask: Subtask) => setEditingSubtask({ id: subtask.id, text: subtask.text });
+    const handleCancelEditing = () => setEditingSubtask(null);
+    const handleSaveEditing = () => {
+        if (editingSubtask) {
+            setSubtasks(prev => prev.map(st => st.id === editingSubtask.id ? { ...st, text: editingSubtask.text } : st));
+            setEditingSubtask(null);
+        }
+    };
+    const subtaskProgress = useMemo(() => {
+        const completed = subtasks.filter(st => st.completed).length;
+        return subtasks.length > 0 ? (completed / subtasks.length) * 100 : 0;
+    }, [subtasks]);
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
@@ -103,9 +137,10 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({ task, onClose, onU
                         </div>
                         <div className="border-b border-gray-200 dark:border-gray-700">
                             <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-                                {(['Details', 'Comments', 'Files'] as Tab[]).map((tab) => (
+                                {(['Details', 'Subtasks', 'Comments', 'Files'] as Tab[]).map((tab) => (
                                     <button type="button" key={tab} onClick={() => setActiveTab(tab)} className={`${ tab === activeTab ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200' } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>
                                         {tab}
+                                        {tab === 'Subtasks' && subtasks.length > 0 && <span className="ml-2 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-200 text-xs font-bold px-2 py-0.5 rounded-full">{subtasks.filter(st => st.completed).length}/{subtasks.length}</span>}
                                         {tab === 'Comments' && comments.length > 0 && <span className="ml-2 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-200 text-xs font-bold px-2 py-0.5 rounded-full">{comments.length}</span>}
                                         {tab === 'Files' && attachments.length > 0 && <span className="ml-2 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-200 text-xs font-bold px-2 py-0.5 rounded-full">{attachments.length}</span>}
                                     </button>
@@ -149,6 +184,71 @@ export const EditTaskModal: React.FC<EditTaskModalProps> = ({ task, onClose, onU
                                 </div>
                             </div>
                           </div>
+                        )}
+                        {activeTab === 'Subtasks' && (
+                           <div className="flex flex-col h-full">
+                                <div className="mb-4">
+                                    <div className="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400 mb-1">
+                                        <span>Progress</span>
+                                        <span>{subtasks.filter(st => st.completed).length}/{subtasks.length}</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                        <div className="bg-primary-500 h-2 rounded-full" style={{ width: `${subtaskProgress}%` }}></div>
+                                    </div>
+                                </div>
+                                <div className="space-y-2 flex-grow overflow-y-auto pr-2">
+                                    {subtasks.map(subtask => (
+                                        <div key={subtask.id} className="flex items-center group bg-gray-50 dark:bg-gray-700/50 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
+                                            <input
+                                                id={`subtask-edit-${subtask.id}`}
+                                                type="checkbox"
+                                                checked={subtask.completed}
+                                                onChange={() => handleToggleSubtask(subtask.id)}
+                                                className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500 dark:bg-gray-700 dark:ring-offset-gray-800 cursor-pointer"
+                                            />
+                                            {editingSubtask?.id === subtask.id ? (
+                                                <input
+                                                    type="text"
+                                                    value={editingSubtask.text}
+                                                    onChange={e => setEditingSubtask({ ...editingSubtask, text: e.target.value })}
+                                                    onBlur={handleSaveEditing}
+                                                    onKeyDown={e => e.key === 'Enter' && handleSaveEditing()}
+                                                    className="ml-3 flex-grow bg-white dark:bg-gray-600 border border-primary-500 rounded-md px-2 py-1 text-sm"
+                                                    autoFocus
+                                                />
+                                            ) : (
+                                                <label
+                                                    htmlFor={`subtask-edit-${subtask.id}`}
+                                                    className={`ml-3 flex-grow text-sm ${subtask.completed ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200'} cursor-pointer`}
+                                                >
+                                                    {subtask.text}
+                                                </label>
+                                            )}
+                                            <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                                                {editingSubtask?.id === subtask.id ? (
+                                                     <>
+                                                        <button type="button" onClick={handleSaveEditing} className="p-1 text-green-500 hover:text-green-700"><CheckIcon /></button>
+                                                        <button type="button" onClick={handleCancelEditing} className="p-1 text-gray-500 hover:text-gray-700"><CloseIcon /></button>
+                                                     </>
+                                                ) : (
+                                                    <button type="button" onClick={() => handleStartEditing(subtask)} className="p-1 text-gray-500 hover:text-primary-600"><PencilIcon /></button>
+                                                )}
+                                                <button type="button" onClick={() => handleDeleteSubtask(subtask.id)} className="p-1 text-gray-500 hover:text-danger-500"><TrashIcon /></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <form onSubmit={handleAddSubtask} className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex items-center space-x-2">
+                                    <input
+                                        type="text"
+                                        value={newSubtaskText}
+                                        onChange={e => setNewSubtaskText(e.target.value)}
+                                        placeholder="Add a new sub-task"
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 text-sm"
+                                    />
+                                    <button type="submit" className="px-3 py-2 text-sm font-medium text-white bg-primary-600 rounded-md shadow-sm hover:bg-primary-700 flex items-center"><PlusIcon /></button>
+                                </form>
+                           </div>
                         )}
                         {activeTab === 'Comments' && (
                             <div className="flex flex-col h-full">
