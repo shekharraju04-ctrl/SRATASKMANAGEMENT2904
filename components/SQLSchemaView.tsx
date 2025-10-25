@@ -9,6 +9,7 @@ const CheckIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" vie
 const PlayIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2"><path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347c.75.411.75 1.559 0 1.97l-11.54 6.347c-.75.412-1.667-.13-1.667-.986V5.653Z" /></svg>);
 const SparklesIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" /></svg>);
 const LoadingSpinner = () => (<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>);
+const InfoIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" /></svg>);
 
 const SchemaViewer: React.FC = () => {
     const [sqlContent, setSqlContent] = useState('');
@@ -41,8 +42,8 @@ const SchemaViewer: React.FC = () => {
     }, [sqlContent]);
 
     return (
-        <>
-            <div className="flex justify-between items-center mb-4">
+        <div className="h-full flex flex-col">
+            <div className="flex justify-between items-center mb-4 flex-shrink-0">
                 <div>
                     <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Database Schema</h2>
                     <p className="text-gray-500 dark:text-gray-400 mt-1">Copy and run this script in your Supabase project's SQL Editor to set up the required tables and policies.</p>
@@ -52,12 +53,26 @@ const SchemaViewer: React.FC = () => {
                     {isCopied ? 'Copied!' : 'Copy SQL'}
                 </button>
             </div>
-            <div className="bg-gray-900 rounded-lg overflow-hidden max-h-[60vh] overflow-y-auto">
+            <div className="mb-4 p-4 rounded-md bg-blue-50 dark:bg-blue-900/40 text-sm text-blue-800 dark:text-blue-200 flex items-start space-x-3 flex-shrink-0">
+                <div className="flex-shrink-0 pt-0.5">
+                    <InfoIcon />
+                </div>
+                <div>
+                    <p>You can find your Project URL and anon public key in your Supabase project's API settings.</p>
+                    <p className="mt-1">
+                        <a href="https://supabase.com/dashboard/project/_/settings/api" target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:text-blue-600 dark:hover:text-blue-100">
+                            Go to Supabase API Settings
+                        </a>
+                    </p>
+                    <p className="mt-2">Once you have them, set them as <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> environment variables for this application to connect to your database.</p>
+                </div>
+            </div>
+            <div className="bg-gray-900 rounded-lg overflow-y-auto flex-grow min-h-0">
                 {isLoading ? <div className="p-8 text-center text-gray-400">Loading schema...</div>
                  : error ? <div className="p-8 text-center text-red-400">{error}</div>
                  : <SyntaxHighlighter language="sql" style={tomorrow} customStyle={{ margin: 0 }}>{sqlContent}</SyntaxHighlighter>}
             </div>
-        </>
+        </div>
     );
 };
 
