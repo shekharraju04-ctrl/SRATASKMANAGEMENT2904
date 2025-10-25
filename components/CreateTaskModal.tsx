@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import type { Assignee, NewTaskData, Project, Client, Task, TaskTemplate, Attachment } from '../types';
 import { Priority } from '../types';
